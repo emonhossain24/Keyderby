@@ -1,7 +1,7 @@
 import {db,one,query,run,token,limited} from './server';
 import {assignRacePassage} from './race-rotation';
 export const PUBLIC_RACE_SECONDS=60;
-const JOIN_WINDOW_MS=12000;
+const JOIN_WINDOW_MS=20000;
 const COUNTDOWN_MS=3500;
 export async function advancePublicRaces(){
  const now=Date.now();
@@ -37,7 +37,7 @@ export async function joinPublicQueue(user:any){
   const room=await one("SELECT * FROM rooms WHERE visibility='public' AND state='waiting' AND expires>? AND (auto_start_at IS NULL OR auto_start_at>?) AND (SELECT count(*) FROM participants WHERE room_id=rooms.id)<capacity ORDER BY created LIMIT 1",now,now+COUNTDOWN_MS);if(!room)continue;
   await run("INSERT OR IGNORE INTO participants(id,room_id,user_id,ready,last_seen) SELECT ?,?,?,1,? WHERE EXISTS(SELECT 1 FROM rooms WHERE id=? AND state='waiting' AND (auto_start_at IS NULL OR auto_start_at>?) AND (SELECT count(*) FROM participants WHERE room_id=rooms.id)<capacity)",room.id+':'+user.id,room.id,user.id,now,room.id,now+COUNTDOWN_MS);
   const joined=await one('SELECT id FROM participants WHERE room_id=? AND user_id=?',room.id,user.id);if(!joined)continue;
-  await run("UPDATE rooms SET auto_start_at=CASE WHEN (SELECT count(*) FROM participants WHERE room_id=rooms.id AND last_seen>?)>=capacity THEN MIN(COALESCE(auto_start_at,?),?) ELSE COALESCE(auto_start_at,?) END WHERE id=? AND state='waiting' AND (SELECT count(*) FROM participants WHERE room_id=rooms.id AND last_seen>?)>=2",now-30000,now+COUNTDOWN_MS,now+COUNTDOWN_MS,now+JOIN_WINDOW_MS,room.id,now-30000);
+  await run("UPDATE rooms SET auto_start_at=COALESCE(auto_start_at,?) WHERE id=? AND state='waiting' AND (SELECT count(*) FROM participants WHERE room_id=rooms.id AND last_seen>?)>=2",now+JOIN_WINDOW_MS,room.id,now-30000);
   await advancePublicRaces();return Response.json({id:room.id,duration:room.duration});
  }
  return Response.json({error:'The starting grid just filled. Please try Enter race again.'},{status:409});
