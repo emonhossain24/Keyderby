@@ -128,7 +128,7 @@ function PageTitle({ eyebrow, title, description, action }: {
     description: string;
     action?: Any;
 }) { return <div className="page-title"><div><span className="eyebrow muted">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>{action}</div>; }
-function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = false, roomId, roomStart, roomPassage, onRaceDone, compact = false }: {
+function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = false, roomId, roomStart, roomClockOffset = 0, roomPassage, onRaceDone, compact = false }: {
     mode: string;
     options?: Any;
     user: Any;
@@ -138,6 +138,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
     disabled?: boolean;
     roomId?: string;
     roomStart?: number;
+    roomClockOffset?: number;
     roomPassage?: Any;
     onRaceDone?: Any;
     compact?: boolean;
@@ -244,10 +245,10 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
         }
     };
     useEffect(() => {
-        if (!roomId || !roomStart || Date.now() < roomStart || autoPrepareRef.current || attemptRef.current) return;
+        if (!roomId || !roomStart || Date.now() - roomClockOffset < roomStart || autoPrepareRef.current || attemptRef.current) return;
         autoPrepareRef.current = true;
         void prepare();
-    }, [roomId, roomStart]);
+    }, [roomId, roomStart, roomClockOffset]);
     const finish = useCallback(async () => {
         if (finishing.current || !attemptRef.current || !started.current)
             return;
@@ -372,7 +373,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
                 if (e.key === 'Backspace' && user?.settings?.noBackspace)
                     e.preventDefault();
             }}/>}
- {status === 'setup' && roomId ? <div className="start-overlay">{busy ? <><Loader2 className="spin" size={20}/><span>Preparing your race…</span></> : <><button className="btn primary" disabled={!target.trim()} onClick={prepare}><RotateCcw size={17}/>Retry race connection</button><span>The race starts automatically. No Start Practice click is needed.</span></>}</div> : status === 'setup' && <div className="start-overlay"><button className="btn primary" disabled={busy || (disabled || (!selected && !['punctuation', 'numbers', 'custom', 'mistakes'].includes(mode)))} onClick={prepare}>{busy ? <Loader2 className="spin" size={18}/> : <Play size={17}/>}Start {mode === 'test' ? 'typing test' : 'practice'}</button><span>Timer starts with your first keystroke.</span></div>}
+ {status === 'setup' && roomId ? <div className="start-overlay"><Loader2 className="spin" size={20}/><span>{busy ? 'Preparing your race…' : 'Connecting to the race automatically…'}</span></div> : status === 'setup' && <div className="start-overlay"><button className="btn primary" disabled={busy || (disabled || (!selected && !['punctuation', 'numbers', 'custom', 'mistakes'].includes(mode)))} onClick={prepare}>{busy ? <Loader2 className="spin" size={18}/> : <Play size={17}/>}Start {mode === 'test' ? 'typing test' : 'practice'}</button><span>Timer starts with your first keystroke.</span></div>}
  {pause && <div className="start-overlay"><button className="btn primary" onClick={onPause}><Play size={17}/>Resume practice</button><span>Pause time is excluded from live metrics.</span></div>}
  {status === 'saving' && <div className="start-overlay"><Loader2 className="spin"/><strong>Saving your lap…</strong></div>}
  {status === 'saveError' && <div className="start-overlay"><button className="btn primary" onClick={finish}>Retry saving result</button></div>}
@@ -445,13 +446,36 @@ function RaceLobby({friends,createRoom,joinRoom,enterRace,notify,go}:Any){
 }
 
 function Room({ id, user, notify, go, enterRace, onSaved }: Any) {
-    const [state, setState] = useState<Any>(null), [error, setError] = useState(''), [countdown, setCountdown] = useState(0), [tick, setTick] = useState(0), [finished, setFinished] = useState(false), [joining, setJoining] = useState(false);
+    const [state, setState] = useState<Any>(null), [error, setError] = useState(''), [serverOffset, setServerOffset] = useState(0), [tick, setTick] = useState(0), [finished, setFinished] = useState(false), [joining, setJoining] = useState(false);
+    const refreshSequence = useRef(0);
     const host = user && state?.room.host === user.id;
     const publicReconnect = state?.room?.visibility === 'public' || /public race/i.test(error);
     const rejoinPublic = () => enterRace().catch((e:Any)=>notify(e.message));
-    const refresh = useCallback(() => api('rooms/' + id).then(d => { setState(d); setError(''); const target = d.room.state === 'waiting' ? d.room.auto_start_at : d.room.start_at; setCountdown(target ? Math.max(0, Math.ceil((target - d.serverNow) / 1000)) : 0); }).catch((e: Any) => setError(e.message)), [id]);
-    useEffect(() => { refresh(); const timer = setInterval(() => { refresh(); setTick(t => t + 1); }, 1000); return () => clearInterval(timer); }, [refresh]);
-    const room = state?.room, players = state?.players || [];const publicMatch=room?.visibility==='public';const queueSeconds=room?.auto_start_at?Math.max(0,Math.ceil((room.auto_start_at-state.serverNow)/1000)):0;
+    const refresh = useCallback(async () => {
+        const sequence = ++refreshSequence.current;
+        try {
+            const d = await api('rooms/' + id);
+            if (sequence !== refreshSequence.current) return;
+            setState(d);
+            setError('');
+            setServerOffset(Date.now() - d.serverNow);
+        } catch (e: Any) {
+            if (sequence === refreshSequence.current) setError(e.message);
+        }
+    }, [id]);
+    useEffect(() => {
+        refresh();
+        const timer = setInterval(() => {
+            if (document.visibilityState === 'visible') refresh();
+            setTick(t => t + 1);
+        }, 1000);
+        return () => { refreshSequence.current++; clearInterval(timer); };
+    }, [refresh]);
+    const room = state?.room, players = state?.players || [];
+    const publicMatch = room?.visibility === 'public';
+    const countdownTarget = room?.state === 'waiting' ? room?.auto_start_at : room?.start_at;
+    const countdown = countdownTarget ? Math.max(0, Math.ceil((countdownTarget - (Date.now() - serverOffset)) / 1000)) : 0;
+    const queueSeconds = room?.auto_start_at ? Math.max(0, Math.ceil((room.auto_start_at - (Date.now() - serverOffset)) / 1000)) : 0;
     const action = async (path: string, body: Any = {}) => {
         try {
             await api('rooms/' + id + '/' + path, body);
@@ -462,26 +486,14 @@ function Room({ id, user, notify, go, enterRace, onSaved }: Any) {
         }
     };
     if (!state)
-        return <><PageTitle eyebrow="YOUR NEXT DERBY" title="Meet at the starting line." description={error || 'Finding your room…'}/>{error && <section className="panel join-room"><h3>{publicReconnect ? 'Reconnect to Public Race' : 'Join this room'}</h3><p>{publicReconnect ? 'Your connection to the public starting grid was interrupted. Rejoin through automatic matchmaking; no invite code is needed.' : <>Room code: <kbd>{id}</kbd></>}</p>{publicReconnect ? <button className="btn primary" onClick={rejoinPublic}><RotateCcw size={16}/>Reconnect to Public Race</button> : <button disabled={joining} className="btn primary" onClick={async () => {
-                    setJoining(true);
-                    try {
-                        await api('rooms/' + id + '/join', {});
-                        refresh();
-                    }
-                    catch (e: Any) {
-                        notify(e.message);
-                    }
-                    finally {
-                        setJoining(false);
-                    }
-                }}>Join room<ArrowRight size={16}/></button>}</section>}</>;
+        return <><PageTitle eyebrow="YOUR NEXT DERBY" title="Meet at the starting line." description={error || 'Finding your room…'}/>{error && <section className="panel join-room"><h3>Reconnecting automatically</h3><p>Your room connection is being restored. This page will retry automatically; no button or manual action is needed.</p></section>}</>;
     if (room.state === 'cancelled')
         return <Empty icon={Flag} title="This race has closed." desc={publicMatch?'There were not enough connected players. Try Enter race again.':'The room host closed this race.'} action={<button className="btn primary" onClick={() => go('race')}>Find another race<ArrowRight size={17}/></button>}/>;
     return <><PageTitle eyebrow={room.visibility === 'private' ? 'YOUR PRIVATE DERBY' : 'THE STARTING GRID'} title={room.name} description={`${room.duration}s timer · ${players.length}/${room.capacity} players · ${room.state === 'waiting' ? 'Waiting for the crew' : room.state === 'finished' ? 'Derby complete' : 'On the track'}`} action={<button className="btn white small" onClick={async () => { await action('leave'); go('race'); }}><LogOut size={16}/>Leave room</button>}/>{!publicMatch&&<div className="invite-bar"><span><Users size={18}/>Room code <kbd>{id}</kbd></span><button className="text-button" onClick={() => navigator.clipboard.writeText(location.origin + '/#room/' + id).then(() => notify('Room invite copied. Share it with your crew.')).catch(() => notify('Copy the room code to invite a friend.'))}><Copy size={15}/>Copy invite link</button></div>}{room.state==='waiting'&&<div className="queue-status"><Loader2 size={17} className="spin"/><span>{players.length<2?'Waiting for another player…':`Automatic start in ${queueSeconds}s · no action needed`}</span><strong>{players.length}/{room.capacity} players · {room.duration}s race</strong></div>}<section className="panel racing-board"><div className="panel-heading"><h3><Flag size={19}/>{room.state === 'waiting' ? 'Your starting grid' : room.state === 'finished' ? 'Across the finish line' : 'Every keystroke moves you forward'}</h3><span className="pill">{room.state === 'waiting' ? (players.length < 2 ? 'Waiting for another driver' : 'Automatic start in ' + countdown + '…') : countdown > 0 ? 'Starts in ' + countdown + '…' : 'Same passage. Fair timing.'}</span></div>{players.map((p: Any, i: number) => <div className={'player-lane ' + (p.user_id === user?.id ? 'my-lane' : '')} key={p.id}><div className="driver-info"><span className="mini-avatar" style={{ background: ['#e8f0ff', '#fbe8e3', '#fdf1cf', '#e7f4e9', '#efe8fb', '#dff4f4'][i] }}>{p.name[0]}</span><div><strong>{p.name}{p.user_id === user?.id && <small>YOU</small>}{p.user_id === room.host && <small>HOST</small>}</strong><span>{Date.now() - p.last_seen > 30000 ? 'Disconnected' : p.finished ? `${fmt(p.wpm)} WPM · ${p.accuracy.toFixed(1)}%` : room.state === 'waiting' ? 'Waiting for countdown' : `${Math.round(p.progress)}% complete`}</span></div></div><div className="driver-track"><Car color={['#248d85', '#ca956e', '#b9a46b', '#7ca18b', '#9b89ae', '#97a9a0'][i]} style={{ left: `calc(${p.progress}% - ${p.progress * .86}px)` }}/><span className="finish-marker">▧</span></div>{room.state === 'waiting' && host && p.user_id !== user.id && <button className="icon-button" aria-label={'Remove ' + p.name} onClick={() => action('kick', { userId: p.user_id })}><X size={15}/></button>}{p.finished && <CheckCircle2 size={21} className="success-text"/>}</div>)}{room.state === 'waiting' && Array.from({ length: Math.max(0, room.capacity - players.length) }, (_, i) => <div className="empty-lane" key={i}><span className="empty-avatar"><Plus size={19}/></span><span>A spot for a friendly rival.</span></div>)}</section>
  {countdown > 0 && <div className="countdown-panel"><span>Fingers on the starting line.</span><strong key={countdown}>{countdown}</strong><p>Everyone gets the same passage. The race begins together.</p></div>}
- {room.state === 'racing' && !countdown && !finished && <Typing compact options={{duration:room.duration}} key={id} mode="race" roomId={id} roomStart={room.start_at} roomPassage={state.passage} user={user} notify={notify} go={go} onSaved={onSaved} onRaceDone={() => { setFinished(true); refresh(); }}/>}
+ {room.state === 'racing' && !countdown && !finished && <Typing compact options={{duration:room.duration}} key={id} mode="race" roomId={id} roomStart={room.start_at} roomClockOffset={serverOffset} roomPassage={state.passage} user={user} notify={notify} go={go} onSaved={onSaved} onRaceDone={() => { setFinished(true); refresh(); }}/>}
  {(room.state === 'finished' || finished) && <section className="panel race-results"><div className="panel-heading"><h3><Trophy size={21}/>The finish line</h3><span className="pill">{room.state!=='finished'&&players.some((p:Any)=>!p.finished)?'Other players are still typing':'Final results'}</span></div><div className="table-scroll"><table><thead><tr><th>Place</th><th>Driver</th><th>Speed</th><th>Accuracy</th><th>Time</th><th>Progress</th></tr></thead><tbody>{[...players].sort((a: Any, b: Any) => (b.wpm??-1)-(a.wpm??-1)||(b.accuracy??0)-(a.accuracy??0)||(a.elapsed??Infinity)-(b.elapsed??Infinity)).map((p: Any, i: number) => <tr key={p.id}><td>{p.finished ? '#' + (i + 1) : '—'}</td><td><strong>{p.name}</strong></td><td>{p.finished ? fmt(p.wpm) + ' WPM' : room.state==='finished'?'No saved result':'On track'}</td><td>{p.finished ? p.accuracy.toFixed(1) + '%' : '—'}</td><td>{p.finished ? p.elapsed.toFixed(1) + 's' : '—'}</td><td>{Math.round(p.progress)}%</td></tr>)}</tbody></table></div><div className="result-buttons"><button className="btn primary" onClick={() => go('friends')}>Set up a rematch<RotateCcw size={16}/></button><button className="btn white" onClick={() => go('dashboard')}>View my progress<BarChart3 size={16}/></button></div></section>}
- {error && <div className="alert" role="alert">Connection interrupted. {error} {publicMatch && <button className="btn small white" onClick={rejoinPublic}><RotateCcw size={15}/>Reconnect to Public Race</button>}</div>}
+ {error && <div className="alert" role="status">Connection interrupted. Reconnecting automatically…</div>}
  </>;
 }
 function Leaderboard({ notify, go }: Any) {
