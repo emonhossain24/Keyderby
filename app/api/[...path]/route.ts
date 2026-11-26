@@ -342,22 +342,11 @@ async function handler(req: Request) {
             return fail(room.visibility==='public'
               ? 'Your public race seat is no longer active. Use Enter race to reconnect.'
               : 'Join this room with its invite code first.', 403);
-        if (p[2] === 'ready' && method === 'POST') {
-            if (room.state !== 'waiting')
-                return fail('The race has started.');
-            await run('UPDATE participants SET ready=?,last_seen=? WHERE id=?', body.ready ? 1 : 0, Date.now(), member.id);
-            return Response.json({ ok: true });
-        }
+        if (p[2] === 'ready' && method === 'POST')
+            return fail('Readiness is automatic. The race starts when two players join.');
         if(['start','cancel','kick'].includes(p[2])&&room.visibility==='public')return fail('Public races are managed automatically.',403);
-        if (p[2] === 'start' && method === 'POST') {
-            if (room.host !== u.id)
-                return fail('Only the host can start this race.', 403);
-            const players = await query('SELECT * FROM participants WHERE room_id=? AND last_seen>?', room.id, Date.now() - 30000);
-            if (players.length < 2 || players.some(x => !x.ready))
-                return fail('At least two connected drivers must be ready.');
-            await run("UPDATE rooms SET state='racing',start_at=? WHERE id=? AND state='waiting'", Date.now() + 3500, room.id);
-            return Response.json({ ok: true });
-        }
+        if (p[2] === 'start' && method === 'POST')
+            return fail('The race countdown starts automatically when two players join.');
         if (p[2] === 'cancel' && method === 'POST') {
             if (room.host !== u.id)
                 return fail('Only the host can close this room.', 403);
