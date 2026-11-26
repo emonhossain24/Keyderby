@@ -7,7 +7,7 @@ try{
  const appSource=fs.readFileSync('app/page.tsx','utf8');
  assert.match(appSource,/autoPrepareRef\.current = true;\s*void prepare\(\);/,'Multiplayer typing session must prepare automatically at the shared start timestamp');
  assert.match(appSource,/Connecting to the race automatically/,'Multiplayer setup must show automatic preparation instead of a manual Start Practice button');
- assert.match(appSource,/firstTyped === targetChars\[0\]/,'Practice must start only when the first typed character matches the passage');
+ assert.match(appSource,/if \(firstTyped && !practiceStarting\.current && !busy\)/,'Practice timer must start on any first key, even when it does not match the passage');
  assert.match(appSource,/mode !== 'practice'/,'Practice mode must not render the Start Practice button');
  assert.match(appSource,/mode === 'practice' && !roomId && status === 'setup'/,'Practice must accept its first character before an attempt is prepared');
  assert.doesNotMatch(appSource,/Start Practice click is needed|>Start practice</,'Multiplayer setup must not expose manual Start Practice controls');
