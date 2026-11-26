@@ -303,19 +303,19 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
         if (status === 'running')
             document.querySelector('.char.current')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }, [typed, status]);
-    const change = (value: string) => {
-        if (mode === 'practice' && !roomId && status === 'setup') {
+    const change = (value: string, prepared = false) => {
+        if (mode === 'practice' && !roomId && status === 'setup' && !prepared) {
             const firstTyped = chars(value)[0];
             if (firstTyped === targetChars[0] && !practiceStarting.current && !busy) {
                 practiceStarting.current = true;
                 void prepare().then(() => {
                     practiceStarting.current = false;
-                    if (attemptRef.current && firstTyped === targetChars[0]) change(value);
+                    if (attemptRef.current && firstTyped === targetChars[0]) change(value, true);
                 });
             }
             return;
         }
-        if (!attempt || !['ready', 'running'].includes(status) || pause)
+        if (!attempt || (!['ready', 'running'].includes(status) && !prepared) || pause)
             return;
         if (!started.current) {
             started.current = Date.now();
