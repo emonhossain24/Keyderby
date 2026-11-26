@@ -227,7 +227,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
             finishing.current = false;
             setResult(null);
             setReview(false);
-            if(roomId){const start=await api('attempts/'+r.attempt.id+'/start',{});started.current=start.started;clock.current=performance.now()-Math.max(0,(Date.now()-roomClockOffset)-roomStart);setStatus('running')}else setStatus('ready');
+            if(roomId){const start=await api('attempts/'+r.attempt.id+'/start',{});started.current=start.started;const sharedStart=roomStart ?? start.started;clock.current=performance.now()-Math.max(0,(Date.now()-roomClockOffset)-sharedStart);setStatus('running')}else setStatus('ready');
             setTimeout(() => input.current?.focus(), 100);
         }
         catch (e: Any) {
