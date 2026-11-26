@@ -11,6 +11,8 @@ try{
  assert.doesNotMatch(appSource,/Ready — click to undo|Start the derby/,'Friends lobby must not expose manual ready or host-start controls');
  assert.match(appSource,/const countdownTarget = room\?\.state === 'waiting' \? room\?\.auto_start_at : room\?\.start_at/,'Both clients must derive countdown from the same server deadline');
  assert.match(appSource,/Date\.now\(\) - serverOffset/,'Countdown must use the server clock offset, not each browser clock');
+ assert.match(appSource,/sharedRaceElapsed = roomId && roomStart \? Math\.max\(0, \(\(Date\.now\(\) - roomClockOffset\) - roomStart\) \/ 1000\) : elapsed/,'Every race client must render remaining time from the same server start timestamp');
+ assert.match(appSource,/clock\.current = performance\.now\(\) - \(roomId && roomStart \? Math\.max\(0, \(Date\.now\(\) - roomClockOffset\) - roomStart\) : 0\)/,'Typing elapsed time must use the shared server clock');
  assert.doesNotMatch(appSource,/Retry race connection|Reconnect to Public Race/,'Multiplayer must not expose manual retry controls');
  record('Friends and Public Race automatically prepare typing at the shared countdown start without manual buttons');
  const db=await mf.getD1Database('DB');for(const f of fs.readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort())for(const sql of fs.readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql).run();
