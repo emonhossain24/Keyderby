@@ -144,7 +144,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
     compact?: boolean;
 }) {
     const [duration, setDuration] = useState([15,30,60,120,300].includes(options.duration)?options.duration:60), [selected, setSelected] = useState(''), [catalogLoading, setCatalogLoading] = useState(false), [selectedDetail, setSelectedDetail] = useState<Any>(null), [assignmentKey, setAssignmentKey] = useState(() => crypto.randomUUID()), [attempt, setAttempt] = useState<Any>(null), [typed, setTyped] = useState(''), [elapsed, setElapsed] = useState(0), [status, setStatus] = useState('setup'), [result, setResult] = useState<Any>(null), [busy, setBusy] = useState(false), [custom, setCustom] = useState(''), [review, setReview] = useState(false), [pause, setPause] = useState(false);
-    const input = useRef<HTMLTextAreaElement>(null), started = useRef(0), typedRef = useRef(''), strokes = useRef(0), wrong = useRef(0), finishing = useRef(false), attemptRef = useRef<Any>(null), autoPrepareRef = useRef(false), clock = useRef(0), pauseAt = useRef(0), pausedTime = useRef(0), tickRef = useRef<Any>(null), lastProgress = useRef(0), inputChain = useRef<Promise<Any>>(Promise.resolve());
+    const input = useRef<HTMLTextAreaElement>(null), started = useRef(0), typedRef = useRef(''), strokes = useRef(0), wrong = useRef(0), finishing = useRef(false), attemptRef = useRef<Any>(null), autoPrepareRef = useRef(false), practiceStarting = useRef(false), clock = useRef(0), pauseAt = useRef(0), pausedTime = useRef(0), tickRef = useRef<Any>(null), lastProgress = useRef(0), inputChain = useRef<Promise<Any>>(Promise.resolve());
     const difficulty = selectedDetail?.difficulty || roomPassage?.difficulty || 'easy';
     const target = attempt?.snapshot || roomPassage?.text || (selectedDetail?.id === selected ? selectedDetail.text : '') || '', targetChars = useMemo(() => chars(target), [target]), typedChars = useMemo(() => chars(typed), [typed]), metrics = score(target, typed, Math.max(.01, elapsed), strokes.current, wrong.current), sharedRaceElapsed = roomId && roomStart ? Math.max(0, ((Date.now() - roomClockOffset) - roomStart) / 1000) : elapsed, remaining = Math.max(0, duration - sharedRaceElapsed), font = user?.settings?.font || 'mono';
     useEffect(() => {
@@ -193,6 +193,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
         setResult(null);
         setElapsed(0);
         setStatus('setup');
+        practiceStarting.current = false;
         setReview(false);
         setPause(false);
         started.current = 0;
@@ -303,6 +304,17 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
             document.querySelector('.char.current')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }, [typed, status]);
     const change = (value: string) => {
+        if (mode === 'practice' && !roomId && status === 'setup') {
+            const firstTyped = chars(value)[0];
+            if (firstTyped === targetChars[0] && !practiceStarting.current && !busy) {
+                practiceStarting.current = true;
+                void prepare().then(() => {
+                    practiceStarting.current = false;
+                    if (attemptRef.current && firstTyped === targetChars[0]) change(value);
+                });
+            }
+            return;
+        }
         if (!attempt || !['ready', 'running'].includes(status) || pause)
             return;
         if (!started.current) {
@@ -381,7 +393,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
                 if (e.key === 'Backspace' && user?.settings?.noBackspace)
                     e.preventDefault();
             }}/>}
- {status === 'setup' && roomId ? <div className="start-overlay"><Loader2 className="spin" size={20}/><span>{busy ? 'Preparing your race…' : 'Connecting to the race automatically…'}</span></div> : status === 'setup' && <div className="start-overlay"><button className="btn primary" disabled={busy || (disabled || (!selected && !['punctuation', 'numbers', 'custom', 'mistakes'].includes(mode)))} onClick={prepare}>{busy ? <Loader2 className="spin" size={18}/> : <Play size={17}/>}Start {mode === 'test' ? 'typing test' : 'practice'}</button><span>Timer starts with your first keystroke.</span></div>}
+ {status === 'setup' && roomId ? <div className="start-overlay"><Loader2 className="spin" size={20}/><span>{busy ? 'Preparing your race…' : 'Connecting to the race automatically…'}</span></div> : status === 'setup' && mode !== 'practice' && <div className="start-overlay"><button className="btn primary" disabled={busy || (disabled || (!selected && !['punctuation', 'numbers', 'custom', 'mistakes'].includes(mode)))} onClick={prepare}>{busy ? <Loader2 className="spin" size={18}/> : <Play size={17}/>}Start {mode === 'test' ? 'typing test' : 'practice'}</button><span>Timer starts with your first keystroke.</span></div>}
  {pause && <div className="start-overlay"><button className="btn primary" onClick={onPause}><Play size={17}/>Resume practice</button><span>Pause time is excluded from live metrics.</span></div>}
  {status === 'saving' && <div className="start-overlay"><Loader2 className="spin"/><strong>Saving your lap…</strong></div>}
  {status === 'saveError' && <div className="start-overlay"><button className="btn primary" onClick={finish}>Retry saving result</button></div>}
