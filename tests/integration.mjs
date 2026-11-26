@@ -5,10 +5,11 @@ const checks=[],record=s=>{checks.push(s);console.log('PASS '+s)},sleep=ms=>new 
 function client(){let cookie='';return async(p,body,method,extra={})=>{const r=await mf.dispatchFetch('https://keyderby.test/api/'+p,{method:method||(body?'POST':'GET'),headers:{...(cookie?{cookie}:{}),...(body?{'Content-Type':'application/json',Origin:'https://keyderby.test'}:{}),...extra},body:body?JSON.stringify(body):undefined});if(r.headers.get('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];return {r,d:await r.json()}}}
 try{
  const appSource=fs.readFileSync('app/page.tsx','utf8');
- assert.match(appSource,/disabled=\{busy \|\| \(roomId \? !target\.trim\(\) : \(disabled \|\| \(!selected/,'Multiplayer Start Practice must depend on the shared race passage, not solo passage selection');
- assert.match(appSource,/if \(disabled && !roomId\)/,'Solo-only feature restrictions must not block multiplayer practice');
- assert.doesNotMatch(appSource,/if \(roomId && roomStart && Date\.now\(\) >= roomStart && !attemptRef\.current\)\s*prepare\(\)/,'Race attempt must not auto-start and leave the manual button busy/');
- record('Friends and Public Race Start Practice stays enabled with a shared passage and waits for an explicit click');
+ assert.match(appSource,/autoPrepareRef\.current = true;\s*void prepare\(\);/,'Multiplayer typing session must prepare automatically at the shared start timestamp');
+ assert.match(appSource,/The race starts automatically\. No Start Practice click is needed\./,'Multiplayer UI must not require a manual Start Practice click');
+ assert.doesNotMatch(appSource,/Ready — click to undo|Start the derby/,'Friends lobby must not expose manual ready or host-start controls');
+ assert.match(appSource,/const target = d\.room\.state === 'waiting' \? d\.room\.auto_start_at : d\.room\.start_at/,'Lobby countdown must display the waiting auto-start timestamp');
+ record('Friends and Public Race automatically prepare typing at the shared countdown start without manual buttons');
  const db=await mf.getD1Database('DB');for(const f of fs.readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort())for(const sql of fs.readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql).run();
  const a=client(),b=client(),c=client();let x=await a('bootstrap');assert.equal(x.r.status,200,JSON.stringify(x.d));assert.equal(x.d.passageCount,4000);assert.ok(x.r.headers.get('set-cookie').includes('HttpOnly'));assert.ok(x.r.headers.get('set-cookie').includes('Secure'));const userA=x.d.user.id;assert.equal(x.d.user.publicId,'KD-22301');assert.notEqual(x.d.user.publicId,userA);record('Automatic 4,000-passage initialization and secure guest session');
  x=await a('profile',{name:'Test Typist A'});assert.equal(x.r.status,200);assert.equal(x.d.user.id,userA);const recovery=x.d.recoveryCode;assert.ok(recovery.startsWith('KD-'));assert.ok(!('recovery' in x.d.user));assert.equal((await a('bootstrap')).d.user.id,userA);record('Name-only profile, automatic ID and persistent ownership');
