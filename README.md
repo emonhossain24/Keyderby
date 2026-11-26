@@ -9,6 +9,15 @@ A minimal typing website with graphite, white and teal styling. Open it and type
 
 Created by **Md. Emon Hossain**.
 
+## Latest typing and race-flow updates
+
+- **Practice starts on the first keypress:** after choosing a duration, the first key the user presses starts session preparation and is retained in the typing input—even when it does not match the passage's first character. Users do not need to press the passage's first letter to start the timer.
+- **Practice passage controls:** users can skip the current passage. When the full passage is typed before the timer expires, a **Submit** control becomes available so they can submit immediately and view the result; otherwise, the timed session finishes when its timer reaches zero.
+- **Finish-line indicator:** the typing card uses a checkered finish flag in the final progress position.
+- **Synchronized multiplayer start:** Public Race and Friends Race use a shared server-timed countdown so participants see the same start time. Public Race waits for the 20-second matchmaking countdown to finish instead of starting early; typing is prepared automatically when the countdown ends.
+- **Automatic race recovery:** transient race-preparation failures are retried automatically. Players do not need a manual **Retry race connection** control, and multiplayer does not show a **Start Practice** action.
+- **Verification:** the latest GitHub Actions run for commit `91f18f2` passed. This confirms the repository's CI checks; it does not by itself confirm a new Cloudflare production deployment.
+
 ## Public Race connection recovery
 
 A temporary browser/network interruption must not remove a player from an active public waiting room. The server now retains memberships until an explicit leave or normal room closure; it counts only recently connected players for auto-start, avoiding races with disconnected opponents. Room refresh restores the player's presence, and repeated **Enter race** reconnects to the existing room without consuming another passage. If a player has already lost their public room membership from an older deployment, the page offers **Reconnect to Public Race** instead of asking for a private invite code. Tests cover 45 seconds offline, recovery and no accidental new assignment.
@@ -37,11 +46,11 @@ Search and selection now share one field. The old “X shown · Y available” l
 
 ## How to use Keyderby
 
-1. Open the website and choose **Practice**. Select Easy, Medium or Difficult, a passage, and a 15–300 second timer. Press **Start practice** and begin typing. The timer starts on your first keystroke.
-2. Watch your live WPM, accuracy, remaining time and car progress. When time ends, your result is saved automatically. **Progress** shows your previous results.
-3. Open **Practice** to receive an automatic passage. Choose only a Duration; the server rotates Easy, Hard, Medium, Mixed automatically without displaying a difficulty picker or passage count. All 3,200 Practice passages appear once per profile cycle. Race keeps 600 Public and 200 Friends passages in independent automatic room sequences.
-4. For a public match, open **Race** and press **Enter race**. You join a pool of 2–5 real players automatically; after another person joins, a shared countdown starts. Everyone types the same passage for 60 seconds.
-5. To race friends, choose **Race → With friends**. One player creates a private room and shares its code or invite link. Friends join, mark themselves ready, and the room creator starts the timed race.
+1. Open **Practice** and choose a duration. Keyderby assigns the next unseen passage automatically; there is no difficulty or passage picker.
+2. Press any first key to begin. The first key is kept in the input, even if it is not the passage's first character. Type the passage while watching live WPM, accuracy, remaining time and car progress.
+3. Finish the passage before time runs out and use **Submit** to view your result early, or let the timer finish. Use **Skip** to move past the current passage. **Progress** shows saved results.
+4. For a public match, open **Race** and press **Enter race**. You are matched with 2–5 players. The shared 20-second countdown controls the start, and every player types the same passage for 60 seconds.
+5. To race friends, choose **Race → With friends**. Create or join a private room using its code or invite link. The room uses a synchronized countdown and automatically prepares typing for all participants.
 6. Click **Add your name** to save a display name. Keyderby automatically assigns a readable, permanent driver ID such as `KD-22301` and remembers your progress in this browser. No sign-in is required. An optional recovery code under Profile can help restore your profile on another browser.
 
 ## What works
@@ -49,8 +58,9 @@ Search and selection now share one field. The old “X shown · Y available” l
 - **4,000 unique passages**, with the previous 3,000 retained and **1,000 additional source-traceable texts**: 1,877 Easy, 1,123 Medium and 1,000 Difficult. Each has a stable code, title, provenance and difficulty.
 - Every typing session has a 15, 30, 60, 120 or 300 second limit. No unlimited mode or timer pause.
 - Live corrected WPM, accuracy, character feedback, car progress and private saved results.
-- **Race → Enter race** automatically joins a public pool of 2–5 real players. A second player starts a 12 second joining window; a full grid shortens the countdown. Public races last 60 seconds and need no room creator or host action.
-- **Race → Friends** creates or joins an invite-only room, with a selected timer and shared start. Its host is an ordinary participant with control of that one room.
+- **Race → Enter race** automatically joins a public pool of 2–5 real players. Players share a server-synchronized 20-second countdown; the race does not start early when the grid fills. Public races last 60 seconds and need no room creator or manual start action.
+- **Race → Friends** creates or joins an invite-only room, with a selected timer and synchronized automatic start. The room creator remains an ordinary participant and controls only that room.
+- Practice starts from any first keypress, retains that key, offers **Skip**, and shows **Submit** when the passage is completed before the timer expires. A checkered flag marks the finish position on the typing card.
 - Private custom text, timed Practice sessions, personal progress, worldwide opt-in Top 30 rankings and optional profile recovery.
 
 ## Run locally
