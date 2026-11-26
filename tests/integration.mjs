@@ -6,7 +6,8 @@ function client(){let cookie='';return async(p,body,method,extra={})=>{const r=a
 try{
  const appSource=fs.readFileSync('app/page.tsx','utf8');
  assert.match(appSource,/autoPrepareRef\.current = true;\s*void prepare\(\);/,'Multiplayer typing session must prepare automatically at the shared start timestamp');
- assert.match(appSource,/The race starts automatically\. No Start Practice click is needed\./,'Multiplayer UI must not require a manual Start Practice click');
+ assert.match(appSource,/Connecting to the race automatically/,'Multiplayer setup must show automatic preparation instead of a manual Start Practice button');
+ assert.doesNotMatch(appSource,/Start Practice click is needed|>Start practice</,'Multiplayer setup must not expose manual Start Practice controls');
  assert.doesNotMatch(appSource,/Ready — click to undo|Start the derby/,'Friends lobby must not expose manual ready or host-start controls');
  assert.match(appSource,/const countdownTarget = room\?\.state === 'waiting' \? room\?\.auto_start_at : room\?\.start_at/,'Both clients must derive countdown from the same server deadline');
  assert.match(appSource,/Date\.now\(\) - serverOffset/,'Countdown must use the server clock offset, not each browser clock');
