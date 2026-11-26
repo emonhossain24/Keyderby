@@ -8,7 +8,9 @@ try{
  assert.match(appSource,/autoPrepareRef\.current = true;\s*void prepare\(\);/,'Multiplayer typing session must prepare automatically at the shared start timestamp');
  assert.match(appSource,/The race starts automatically\. No Start Practice click is needed\./,'Multiplayer UI must not require a manual Start Practice click');
  assert.doesNotMatch(appSource,/Ready — click to undo|Start the derby/,'Friends lobby must not expose manual ready or host-start controls');
- assert.match(appSource,/const target = d\.room\.state === 'waiting' \? d\.room\.auto_start_at : d\.room\.start_at/,'Lobby countdown must display the waiting auto-start timestamp');
+ assert.match(appSource,/const countdownTarget = room\?\.state === 'waiting' \? room\?\.auto_start_at : room\?\.start_at/,'Both clients must derive countdown from the same server deadline');
+ assert.match(appSource,/Date\.now\(\) - serverOffset/,'Countdown must use the server clock offset, not each browser clock');
+ assert.doesNotMatch(appSource,/Retry race connection|Reconnect to Public Race/,'Multiplayer must not expose manual retry controls');
  record('Friends and Public Race automatically prepare typing at the shared countdown start without manual buttons');
  const db=await mf.getD1Database('DB');for(const f of fs.readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort())for(const sql of fs.readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint'))if(sql.trim())await db.prepare(sql).run();
  const a=client(),b=client(),c=client();let x=await a('bootstrap');assert.equal(x.r.status,200,JSON.stringify(x.d));assert.equal(x.d.passageCount,4000);assert.ok(x.r.headers.get('set-cookie').includes('HttpOnly'));assert.ok(x.r.headers.get('set-cookie').includes('Secure'));const userA=x.d.user.id;assert.equal(x.d.user.publicId,'KD-22301');assert.notEqual(x.d.user.publicId,userA);record('Automatic 4,000-passage initialization and secure guest session');
