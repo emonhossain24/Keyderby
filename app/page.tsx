@@ -315,13 +315,14 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
             }
             return;
         }
-        if (!attempt || (!['ready', 'running'].includes(status) && !prepared) || pause)
+        const activeAttempt = attemptRef.current;
+        if (!activeAttempt || (!['ready', 'running'].includes(status) && !prepared) || pause)
             return;
         if (!started.current) {
             started.current = Date.now();
             clock.current = performance.now() - (roomId && roomStart ? Math.max(0, (Date.now() - roomClockOffset) - roomStart) : 0);
             setStatus('running');
-            inputChain.current = api('attempts/' + attempt.id + '/start', {}).then(r => { clock.current = performance.now() - Math.max(0, Date.now() - r.started); return r; }).catch((e: Any) => { notify(e.message); setStatus('setup'); started.current = 0; throw e; });
+            inputChain.current = api('attempts/' + activeAttempt.id + '/start', {}).then(r => { clock.current = performance.now() - Math.max(0, Date.now() - r.started); return r; }).catch((e: Any) => { notify(e.message); setStatus('setup'); started.current = 0; throw e; });
         }
         const previous = chars(typedRef.current), next = chars(value);
         if (user?.settings.noBackspace && next.length < previous.length)
@@ -383,7 +384,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
  {mode === 'custom' && status === 'setup' && <div className="custom-input"><label>Paste your practice text<textarea maxLength={10000} value={custom} onChange={e => setCustom(e.target.value)} placeholder="Paste a paragraph, a story, or something you are learning…"/></label><span>{custom.length.toLocaleString()} / 10,000 characters · Private practice only</span></div>}
 
  <div className="passage-identity"><span className="passage-number">{attempt?.displayId||selectedPassage?.displayId||'WORD PRACTICE'}</span><strong>{attempt?.title||selectedPassage?.title||names[mode]||'Typing practice'}</strong></div> <div className="typing-metrics"><div><strong>{status === 'setup' ? '—' : Math.round(metrics.wpm)}</strong><span>WPM</span></div><div><strong>{status === 'setup' ? '—' : metrics.accuracy.toFixed(0) + '%'}</strong><span>ACCURACY</span></div><div className="metric-time"><Timer size={22}/><strong>{Math.ceil(remaining)}<small>s</small></strong><span>{'REMAINING'}</span></div><div><strong>{Math.round(metrics.completion)}<small>%</small></strong><span>PROGRESS</span></div></div>
- <div className="practice-track"><div className="lane-line"/><Car color="#248d85" style={{ left: `calc(${Math.min(100, metrics.completion)}% - ${metrics.completion * .85}px)` }}/><span className="track-finish">▧</span><span className="you-label">YOU</span></div>
+ <div className="practice-track"><div className="lane-line"/><Car color="#248d85" style={{ left: `calc(${Math.min(100, metrics.completion)}% - ${metrics.completion * .85}px)` }}/><span className="track-finish" aria-label="Finish line"><Flag size={22} strokeWidth={2.5}/></span><span className="you-label">YOU</span></div>
  {(user?.settings?.noBackspace || user?.settings?.strict) && <p className="mode-warning">{user.settings.strict ? 'Strict mode: incorrect keystrokes are blocked and counted as errors. ' : ''}{user.settings.noBackspace ? 'No-backspace mode is enabled.' : ''} These settings are excluded from standard leaderboards.</p>}
  <div className={'typing-workspace ' + (status === 'setup' ? 'preview-text' : '') + (pause ? ' paused' : '')} style={{ fontFamily: font === 'mono' ? 'ui-monospace, SFMono-Regular, Consolas, monospace' : font === 'serif' ? 'Georgia, serif' : 'Arial, sans-serif', fontSize: user?.settings?.fontSize || 23, lineHeight: user?.settings?.lineHeight || 1.9 }} onClick={() => input.current?.focus()}>
  <p id="typing-target" className="sr-only">Type this passage: {target}</p><div className="target-text" aria-hidden="true">{target ? targetChars.slice(windowStart, windowStart + 700).map((c, j) => { const i = j + windowStart; return <span className={'char ' + (i < typedChars.length ? (typedChars[i] === c ? 'correct' : 'incorrect') : i === typedChars.length ? 'current' : '')} key={i}>{c}</span>; }) : <span>{mode === 'numbers' ? '42 17.5 100% $24.99 2026 3+7=10' : mode === 'punctuation' ? 'Wait, listen. "Is it ready?" Yes! (Check twice); then: start.' : mode === 'custom' ? 'Your private practice text will appear here.' : mode === 'mistakes' ? 'Your saved word mistakes will become your next practice session.' : 'Loading your next passage…'}</span>}</div>
