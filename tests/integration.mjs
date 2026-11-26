@@ -7,6 +7,9 @@ try{
  const appSource=fs.readFileSync('app/page.tsx','utf8');
  assert.match(appSource,/autoPrepareRef\.current = true;\s*void prepare\(\);/,'Multiplayer typing session must prepare automatically at the shared start timestamp');
  assert.match(appSource,/Connecting to the race automatically/,'Multiplayer setup must show automatic preparation instead of a manual Start Practice button');
+ assert.match(appSource,/firstTyped === targetChars\[0\]/,'Practice must start only when the first typed character matches the passage');
+ assert.match(appSource,/mode !== 'practice'/,'Practice mode must not render the Start Practice button');
+ assert.match(appSource,/mode === 'practice' && !roomId && status === 'setup'/,'Practice must accept its first character before an attempt is prepared');
  assert.doesNotMatch(appSource,/Start Practice click is needed|>Start practice</,'Multiplayer setup must not expose manual Start Practice controls');
  assert.doesNotMatch(appSource,/Ready — click to undo|Start the derby/,'Friends lobby must not expose manual ready or host-start controls');
  assert.match(appSource,/const countdownTarget = room\?\.state === 'waiting' \? room\?\.auto_start_at : room\?\.start_at/,'Both clients must derive countdown from the same server deadline');
