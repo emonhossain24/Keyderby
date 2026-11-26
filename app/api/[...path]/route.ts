@@ -321,7 +321,7 @@ async function handler(req: Request) {
             return Response.json({ id });
         }
         await advancePublicRaces();
-        const room = await one('SELECT * FROM rooms WHERE id=?', clean(p[1], 32));
+        let room = await one('SELECT * FROM rooms WHERE id=?', clean(p[1], 32));
         if (!room || room.expires < Date.now())
             return fail('This room is unavailable or has expired.', 404);
         const member = await one('SELECT * FROM participants WHERE room_id=? AND user_id=?', room.id, u.id);
@@ -383,7 +383,20 @@ async function handler(req: Request) {
             return Response.json({ ok: true });
         }
         if (method === 'GET') {
-            await run('UPDATE participants SET last_seen=? WHERE id=?', Date.now(), member.id);
+            const now = Date.now();
+            await run('UPDATE participants SET last_seen=? WHERE id=?', now, member.id);
+            if (room.visibility === 'private' && room.state === 'waiting') {
+                const online = await one('SELECT count(*) n FROM participants WHERE room_id=? AND last_seen>?', room.id, now - 30000);
+                if (Number(online?.n || 0) < 2) {
+                    await run("UPDATE rooms SET auto_start_at=NULL WHERE id=? AND state='waiting'", room.id);
+                } else {
+                    await run("UPDATE rooms SET auto_start_at=COALESCE(auto_start_at,?) WHERE id=? AND state='waiting'", now + 20000, room.id);
+                    const scheduled = await one('SELECT auto_start_at FROM rooms WHERE id=?', room.id);
+                    if (scheduled?.auto_start_at && Number(scheduled.auto_start_at) <= now)
+                        await run("UPDATE rooms SET state='racing',start_at=auto_start_at WHERE id=? AND state='waiting' AND auto_start_at<=?", room.id, now);
+                }
+                room = await one('SELECT * FROM rooms WHERE id=?', room.id);
+            }
             const players = await query('SELECT participants.*,users.name,attempts.wpm,attempts.accuracy,attempts.elapsed,attempts.finished FROM participants JOIN users ON users.id=participants.user_id LEFT JOIN attempts ON attempts.id=participants.result_id WHERE participants.room_id=?', room.id);
             if (room.state === 'racing' && Date.now() - (room.start_at || Date.now()) > (room.duration+5)*1000) {
                 await run("UPDATE rooms SET state='finished' WHERE id=?", room.id);
