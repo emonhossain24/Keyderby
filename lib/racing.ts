@@ -13,7 +13,7 @@ export async function advancePublicRaces(){
   db().prepare("UPDATE rooms SET state='cancelled' WHERE visibility='public' AND state='waiting' AND (created<? OR expires<=?)").bind(now-120000,now),
   db().prepare("UPDATE rooms SET auto_start_at=NULL WHERE visibility='public' AND state='waiting' AND (SELECT count(*) FROM participants WHERE room_id=rooms.id AND last_seen>?)<2").bind(onlineSince),
   db().prepare("UPDATE rooms SET auto_start_at=COALESCE(auto_start_at,?) WHERE visibility='public' AND state='waiting' AND (SELECT count(*) FROM participants WHERE room_id=rooms.id AND last_seen>?)>=2").bind(now+JOIN_WINDOW_MS,onlineSince),
-  db().prepare("UPDATE rooms SET state='racing',start_at=auto_start_at WHERE visibility='public' AND state='waiting' AND auto_start_at IS NOT NULL AND auto_start_at<=? AND (SELECT count(*) FROM participants WHERE room_id=rooms.id AND last_seen>?)>=2").bind(now+COUNTDOWN_MS,onlineSince)
+  db().prepare("UPDATE rooms SET state='racing',start_at=auto_start_at WHERE visibility='public' AND state='waiting' AND auto_start_at IS NOT NULL AND auto_start_at<=? AND (SELECT count(*) FROM participants WHERE room_id=rooms.id AND last_seen>?)>=2").bind(now,onlineSince)
  ]);
 }
 export async function joinPublicQueue(user:any){
