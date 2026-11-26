@@ -369,7 +369,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
                 if (e.key === 'Backspace' && user?.settings?.noBackspace)
                     e.preventDefault();
             }}/>}
- {status === 'setup' && <div className="start-overlay"><button className="btn primary" disabled={busy || disabled || (roomId ? !roomPassage?.text : (!selected && !['punctuation', 'numbers', 'custom', 'mistakes'].includes(mode)))} onClick={prepare}>{busy ? <Loader2 className="spin" size={18}/> : <Play size={17}/>}Start {mode === 'test' ? 'typing test' : 'practice'}</button><span>Timer starts with your first keystroke.</span></div>}
+ {status === 'setup' && <div className="start-overlay"><button className="btn primary" disabled={busy || disabled || (!roomId && !selected && !['punctuation', 'numbers', 'custom', 'mistakes'].includes(mode))} onClick={prepare}>{busy ? <Loader2 className="spin" size={18}/> : <Play size={17}/>}Start {mode === 'test' ? 'typing test' : 'practice'}</button><span>Timer starts with your first keystroke.</span></div>}
  {pause && <div className="start-overlay"><button className="btn primary" onClick={onPause}><Play size={17}/>Resume practice</button><span>Pause time is excluded from live metrics.</span></div>}
  {status === 'saving' && <div className="start-overlay"><Loader2 className="spin"/><strong>Saving your lap…</strong></div>}
  {status === 'saveError' && <div className="start-overlay"><button className="btn primary" onClick={finish}>Retry saving result</button></div>}
