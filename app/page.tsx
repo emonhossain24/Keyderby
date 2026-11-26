@@ -146,7 +146,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
     const [duration, setDuration] = useState([15,30,60,120,300].includes(options.duration)?options.duration:60), [selected, setSelected] = useState(''), [catalogLoading, setCatalogLoading] = useState(false), [selectedDetail, setSelectedDetail] = useState<Any>(null), [assignmentKey, setAssignmentKey] = useState(() => crypto.randomUUID()), [attempt, setAttempt] = useState<Any>(null), [typed, setTyped] = useState(''), [elapsed, setElapsed] = useState(0), [status, setStatus] = useState('setup'), [result, setResult] = useState<Any>(null), [busy, setBusy] = useState(false), [custom, setCustom] = useState(''), [review, setReview] = useState(false), [pause, setPause] = useState(false);
     const input = useRef<HTMLTextAreaElement>(null), started = useRef(0), typedRef = useRef(''), strokes = useRef(0), wrong = useRef(0), finishing = useRef(false), attemptRef = useRef<Any>(null), autoPrepareRef = useRef(false), clock = useRef(0), pauseAt = useRef(0), pausedTime = useRef(0), tickRef = useRef<Any>(null), lastProgress = useRef(0), inputChain = useRef<Promise<Any>>(Promise.resolve());
     const difficulty = selectedDetail?.difficulty || roomPassage?.difficulty || 'easy';
-    const target = attempt?.snapshot || roomPassage?.text || (selectedDetail?.id === selected ? selectedDetail.text : '') || '', targetChars = useMemo(() => chars(target), [target]), typedChars = useMemo(() => chars(typed), [typed]), metrics = score(target, typed, Math.max(.01, elapsed), strokes.current, wrong.current), remaining = Math.max(0, duration - elapsed), font = user?.settings?.font || 'mono';
+    const target = attempt?.snapshot || roomPassage?.text || (selectedDetail?.id === selected ? selectedDetail.text : '') || '', targetChars = useMemo(() => chars(target), [target]), typedChars = useMemo(() => chars(typed), [typed]), metrics = score(target, typed, Math.max(.01, elapsed), strokes.current, wrong.current), sharedRaceElapsed = roomId && roomStart ? Math.max(0, ((Date.now() - roomClockOffset) - roomStart) / 1000) : elapsed, remaining = Math.max(0, duration - sharedRaceElapsed), font = user?.settings?.font || 'mono';
     useEffect(() => {
         window.dispatchEvent(new CustomEvent('kd:typing', { detail: status === 'running' }));
         const unload = (e: BeforeUnloadEvent) => {
@@ -227,7 +227,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
             finishing.current = false;
             setResult(null);
             setReview(false);
-            if(roomId){const start=await api('attempts/'+r.attempt.id+'/start',{});started.current=start.started;clock.current=performance.now()-Math.max(0,Date.now()-start.started);setStatus('running')}else setStatus('ready');
+            if(roomId){const start=await api('attempts/'+r.attempt.id+'/start',{});started.current=start.started;clock.current=performance.now()-Math.max(0,(Date.now()-roomClockOffset)-roomStart);setStatus('running')}else setStatus('ready');
             setTimeout(() => input.current?.focus(), 100);
         }
         catch (e: Any) {
@@ -307,7 +307,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
             return;
         if (!started.current) {
             started.current = Date.now();
-            clock.current = performance.now() - (roomId && roomStart ? Math.max(0, Date.now() - roomStart) : 0);
+            clock.current = performance.now() - (roomId && roomStart ? Math.max(0, (Date.now() - roomClockOffset) - roomStart) : 0);
             setStatus('running');
             inputChain.current = api('attempts/' + attempt.id + '/start', {}).then(r => { clock.current = performance.now() - Math.max(0, Date.now() - r.started); return r; }).catch((e: Any) => { notify(e.message); setStatus('setup'); started.current = 0; throw e; });
         }
