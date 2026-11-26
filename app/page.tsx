@@ -306,11 +306,13 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
     const change = (value: string, prepared = false) => {
         if (mode === 'practice' && !roomId && status === 'setup' && !prepared) {
             const firstTyped = chars(value)[0];
-            if (firstTyped === targetChars[0] && !practiceStarting.current && !busy) {
+            if (firstTyped && !practiceStarting.current && !busy) {
                 practiceStarting.current = true;
                 void prepare().then(() => {
                     practiceStarting.current = false;
-                    if (attemptRef.current && firstTyped === targetChars[0]) change(value, true);
+                    if (attemptRef.current) change(value, true);
+                }).catch(() => {
+                    practiceStarting.current = false;
                 });
             }
             return;
@@ -342,7 +344,7 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
             v = chars(v).slice(0, targetChars.length).join('');
         typedRef.current = v;
         setTyped(v);
-        if (chars(v).length >= targetChars.length && (!roomId || v === target))
+        if (roomId && chars(v).length >= targetChars.length && v === target)
             setTimeout(finish, 0);
     };
     const next = async () => {
@@ -399,10 +401,10 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
  {status === 'saving' && <div className="start-overlay"><Loader2 className="spin"/><strong>Saving your lap…</strong></div>}
  {status === 'saveError' && <div className="start-overlay"><button className="btn primary" onClick={finish}>Retry saving result</button></div>}
  </div>
- <div className="typing-bottom"><span id="typing-instructions">{status === 'ready' ? <><span className="live-dot"/>Ready when you are. Start typing to begin.</> : status === 'running' ? <><span className="live-dot"/>Find your flow. Keep going.</> : <><Keyboard size={15}/>Accuracy first. Speed follows.</>}</span><div>{status === 'running' && !duration && !roomId && <button className="icon-button" onClick={onPause} aria-label="Pause practice"><Pause size={17}/></button>}{active && <><button className="text-button" onClick={async () => {
-                if (confirm('Discard this session and move to the next passage? Your unfinished result will not be saved.'))
+ <div className="typing-bottom"><span id="typing-instructions">{status === 'ready' ? <><span className="live-dot"/>Ready when you are. Start typing to begin.</> : status === 'running' ? <><span className="live-dot"/>Find your flow. Keep going.</> : <><Keyboard size={15}/>Accuracy first. Speed follows.</>}</span><div>{status === 'running' && !duration && !roomId && <button className="icon-button" onClick={onPause} aria-label="Pause practice"><Pause size={17}/></button>}{(active || (mode === 'practice' && !roomId && status === 'setup')) && <button className="text-button" onClick={async () => {
+                if (confirm('Skip this passage? Your unfinished result will not be saved.'))
                     await next();
-            }}><RotateCcw size={15}/>{mode==='practice'?'Skip passage':'Restart'}</button>{started.current > 0 && !roomId && <button className="btn small white" onClick={finish}>Finish session<Check size={15}/></button>}</>}</div></div>
+            }}><Flag size={15}/>Skip passage</button>}{active && !roomId && status === 'running' && typedChars.length >= targetChars.length && targetChars.length > 0 && <button className="btn small white" onClick={finish}>Submit<Check size={15}/></button>}</div></div>
  <div className="typing-progress"><div style={{ width: metrics.completion + '%' }}/></div>
  </section>
 
