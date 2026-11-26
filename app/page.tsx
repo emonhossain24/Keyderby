@@ -231,12 +231,20 @@ function Typing({ mode, options = {}, user, notify, go, onSaved, disabled = fals
             setTimeout(() => input.current?.focus(), 100);
         }
         catch (e: Any) {
-            if (e.details?.activeAttemptId && confirm('Your profile has an unfinished session. Discard it and start this session?')) {
+            if (roomId) {
+                if (e.details?.activeAttemptId) {
+                    try { await api('attempts/' + e.details.activeAttemptId + '/cancel', {}); } catch { }
+                } else {
+                    notify(e.message);
+                }
+                autoPrepareRef.current = false;
+                window.setTimeout(() => {
+                    if (roomId && !attemptRef.current) void prepare();
+                }, 1500);
+            } else if (e.details?.activeAttemptId && confirm('Your profile has an unfinished session. Discard it and start this session?')) {
                 await api('attempts/' + e.details.activeAttemptId + '/cancel', {});
                 await prepare();
-            }
-            else {
-                if (roomId) autoPrepareRef.current = false;
+            } else {
                 notify(e.message);
             }
         }
